@@ -36,3 +36,17 @@
     transform: rotate(360deg);
   }
 }
+
+/* HideScrollbar.css */
+.hide-scrollbar {
+  /* For Firefox */
+  scrollbar-width: none; 
+
+  /* For Internet Explorer and Edge */
+  -ms-overflow-style: none; 
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  /* For Chrome, Safari, and Opera */
+  display: none;
+}

@@ -61,6 +61,7 @@ router.get('/:vmName/container/:containerName', async (req, res) => {
   try {
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = `docker inspect ${containerName}`;
+    console.log(command)
 
     let data = '';
     vmConn.exec(command, (err, stream) => {

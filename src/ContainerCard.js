@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ContainerHeader from './components/ContainerHeader';
 import ContainerMetrics from './components/ContainerMetrics';
+import { FaExclamationTriangle, FaTrash } from 'react-icons/fa';
 import LogsViewer from './components/LogsViewer';
 import EnvVariables from './components/EnvVariables';
+import { Tooltip } from 'react-tooltip';
 
 const ContainerCard = ({ container, vmName, fetchMetrics }) => {
   const [logs, setLogs] = useState('');
@@ -13,14 +15,15 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [envVars, setEnvVars] = useState([]);
   const [showEnvVars, setShowEnvVars] = useState(false);
+  const [isStopping, setIsStopping] = useState(false); // New state variable
 
   const navigate = useNavigate();
 
   // Fetch logs for the container
   const fetchLogs = async (containerName) => {
-    if(showLogs){
-        setShowLogs(!showLogs);
-        return
+    if (showLogs) {
+      setShowLogs(!showLogs);
+      return;
     }
     try {
       const response = await axios.get(`/api/metrics/${vmName}/logs/${containerName}`);
@@ -34,6 +37,7 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
 
   // Stop the container
   const stopContainer = async (containerName) => {
+    setIsStopping(true); // Set isStopping to true
     await axios.post(`/api/metrics/${vmName}/stop/${containerName}`);
     fetchMetrics();
   };
@@ -56,8 +60,30 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
     navigate(`/network/container/${vmName}/${containerName}`);
   };
 
+  // Reset isStopping when container status indicates it's stopped
+  useEffect(() => {
+    if (container.Status === 'exited' || container.Status === 'stopped') {
+      setIsStopping(false);
+    }
+  }, [container.Status]);
+
   return (
     <div className="bg-card dark:bg-card text-text dark:text-text p-6 rounded-lg shadow-md mb-6 relative">
+      {container.warning && (
+        <div className="absolute top-4 right-4 pulsate-container">
+          <FaExclamationTriangle
+            className="text-red-500 animate-pulsate"
+            data-tooltip-id="error-tooltip"
+            aria-label="Error detected"
+          />
+          <Tooltip id="error-tooltip" place="top" type="dark" effect="solid">
+            Warning! Our Inference model has detected a possible error on this container. Please check the logs for more details
+          </Tooltip>
+        </div>
+      )}
+
+      
+
       <ContainerHeader
         container={container}
         vmName={vmName}
@@ -88,17 +114,23 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
 
       {/* Buttons Wrapper */}
       <div className="absolute bottom-4 right-4 flex space-x-2">
+      {isStopping && (
+        <div className="absolute mr-16 pulsate-container">
+          <FaTrash
+            className="text-black animate-pulsate"
+            data-tooltip-id="stopping-tooltip"
+            aria-label="Container is being stopped"
+          />
+          <Tooltip id="stopping-tooltip" place="top" type="dark" effect="solid">
+            Container is being stopped
+          </Tooltip>
+        </div>
+      )}
         <button
           onClick={() => stopContainer(container.Name)}
           className="mr-2 bg-red-500 text-white p-2 px-5 rounded-2xl hover:bg-red-600 transition"
         >
           Stop
-        </button>
-        <button
-          onClick={() => restartContainer(container.Name)}
-          className="mr-2 bg-orange-500 text-white p-2 px-5 rounded-2xl hover:bg-orange-600 transition"
-        >
-          Restart
         </button>
       </div>
     </div>

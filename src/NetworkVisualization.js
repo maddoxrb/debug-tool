@@ -6,7 +6,6 @@ const VMNetworkInfo = () => {
   const { vmName } = useParams();
   const [networkData, setNetworkData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
 
   // Fetch network data from the server
   const fetchNetworkData = async () => {

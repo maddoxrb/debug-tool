@@ -1,6 +1,7 @@
 const express = require('express');
 const { connectToVM } = require('../sshUtils');
 const router = express.Router();
+const { spawn } = require('child_process');
 
 const vmHosts = {
   vm1: '192.168.5.50',
@@ -14,10 +15,72 @@ function safeJSONParse(line) {
   try {
     return JSON.parse(line);
   } catch (error) {
-    console.error("JSON parsing error:", error);
+    console.error('JSON parsing error:', error);
     return null;
   }
 }
+
+// Function to convert memory sizes to MiB
+function convertToMiB(sizeStr) {
+  let size = parseFloat(sizeStr);
+  if (sizeStr.toUpperCase().includes('GIB') || sizeStr.toUpperCase().includes('GB')) {
+    return size * 1024;
+  } else if (sizeStr.toUpperCase().includes('MIB') || sizeStr.toUpperCase().includes('MB')) {
+    return size;
+  } else if (sizeStr.toUpperCase().includes('KIB') || sizeStr.toUpperCase().includes('KB')) {
+    return size / 1024;
+  } else {
+    return size; // Assume MiB if no unit is specified
+  }
+}
+
+// Function to get prediction from Python script
+const getPrediction = (containerStats) => {
+  return new Promise((resolve, reject) => {
+    // Preprocess the input data
+    try {
+      const memUsageParts = containerStats.MemUsage.split(' / ');
+      const memUsageStr = memUsageParts[0].trim();
+      const memLimitStr = memUsageParts[1].trim();
+
+      const inputData = {
+        cpu_perc: parseFloat(containerStats.CPUPerc.replace('%', '').trim()),
+        mem_usage: convertToMiB(memUsageStr),
+        mem_limit: convertToMiB(memLimitStr),
+        mem_perc: parseFloat(containerStats.MemPerc.replace('%', '').trim()),
+        pids: parseInt(containerStats.PIDs),
+      };
+
+      const pyProcess = spawn('python3', ['predict.py']);
+
+      let prediction = '';
+      let errorData = '';
+
+      pyProcess.stdin.write(JSON.stringify(inputData));
+      pyProcess.stdin.end();
+
+      pyProcess.stdout.on('data', (data) => {
+        prediction += data.toString();
+      });
+
+      pyProcess.stderr.on('data', (data) => {
+        errorData += data.toString();
+      });
+
+      pyProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error(`Python script exited with code ${code}: ${errorData}`);
+          reject(new Error(`Python script error: ${errorData}`));
+        } else {
+          resolve(prediction.trim());
+        }
+      });
+    } catch (err) {
+      console.error('Error preprocessing container stats:', err);
+      reject(err);
+    }
+  });
+};
 
 // --------------------
 // Images Routes
@@ -253,13 +316,15 @@ router.get('/:vmName', async (req, res) => {
   const { vmName } = req.params;
   const vmHost = vmHosts[vmName];
 
-  if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
+  if (!vmHost) {
+    return res.status(400).json({ error: 'Invalid VM name' });
+  }
 
   try {
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const metricsCommand = 'sudo docker stats --no-stream --format "{{json .}}"';
 
-    vmConn.exec(metricsCommand, (err, stream) => {
+    vmConn.exec(metricsCommand, async (err, stream) => {
       if (err) {
         console.error('Command execution error:', err);
         vmConn.end();
@@ -270,7 +335,7 @@ router.get('/:vmName', async (req, res) => {
       let data = '';
       stream
         .on('data', (chunk) => (data += chunk))
-        .on('close', () => {
+        .on('close', async () => {
           if (!data) {
             console.error('No data received from Docker stats');
             res.status(500).json({ error: 'No data received from Docker stats' });
@@ -283,7 +348,28 @@ router.get('/:vmName', async (req, res) => {
               console.error('No valid JSON data received');
               res.status(500).json({ error: 'No valid metrics data' });
             } else {
-              res.json(metrics);
+              // Now we will process the metrics to include predictions
+              try {
+                const predictions = await Promise.all(
+                  metrics.map(async (container) => {
+                    try {
+                      const prediction = await getPrediction(container);
+                      container.warning = prediction === '1'; // Assuming '1' indicates error
+                    } catch (err) {
+                      console.error(
+                        `Error getting prediction for container ${container.Name}:`,
+                        err
+                      );
+                      container.warning = false; // Default to no warning on error
+                    }
+                    return container;
+                  })
+                );
+                res.json(predictions);
+              } catch (err) {
+                console.error('Error processing metrics:', err);
+                res.status(500).json({ error: 'Failed to process metrics' });
+              }
             }
           }
 
@@ -300,6 +386,8 @@ router.get('/:vmName', async (req, res) => {
     res.status(500).json({ error: 'Failed to connect to VM or retrieve metrics' });
   }
 });
+
+module.exports = router;
 
 // Route to get logs of a specific container
 router.get('/:vmName/logs/:containerName', async (req, res) => {
@@ -334,7 +422,6 @@ router.get('/:vmName/logs/:containerName', async (req, res) => {
           .on('close', () => {
             if (!responseSent) {
               responseSent = true;
-              console.log('Logs retrieved:', { stdout: data, stderr: errorData });
               res.json({ logs: data + errorData });
             }
             vmConn.end();
@@ -424,12 +511,14 @@ router.post('/:vmName/exec/:containerName', async (req, res) => {
 router.post('/:vmName/restart/:containerName', async (req, res) => {
   const { vmName, containerName } = req.params;
   const vmHost = vmHosts[vmName];
+  console.log('--------- PINGED -------------')
 
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const restartCommand = `docker restart ${containerName}`;
+    console.log(restartCommand)
 
     vmConn.exec(restartCommand, (err) => {
       if (err) {
@@ -439,6 +528,7 @@ router.post('/:vmName/restart/:containerName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      console.log('Success')
       res.json({ message: 'Container restarted successfully' });
       vmConn.end();
       bastionConn.end();

@@ -1,0 +1,11 @@
+# Use Python base image
+FROM python:3.9-slim
+
+# Copy the workload script
+COPY failure_workload.py /app/failure_workload.py
+
+# Set the working directory
+WORKDIR /app
+
+# Run the workload script
+CMD ["python", "failure_workload.py"]

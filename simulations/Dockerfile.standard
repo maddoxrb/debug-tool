@@ -1,0 +1,11 @@
+# Use Python base image
+FROM python:3.9-slim
+
+# Copy the workload script
+COPY standard_workload.py /app/standard_workload.py
+
+# Set the working directory
+WORKDIR /app
+
+# Run the workload script
+CMD ["python", "standard_workload.py"]

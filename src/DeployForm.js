@@ -2,11 +2,20 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+/**
+ * DeployForm is a React component that renders a form for deploying a Docker
+ * container on a specified VM.
+ */
 const DeployForm = () => {
   const [imageName, setImageName] = useState('');
   const [containerName, setContainerName] = useState('');
   const [vmName, setVmName] = useState('vm1');
 
+  /**
+   * Handles submission of the form. Makes a POST request to the server to
+   * deploy the container on the specified VM.
+   * @param {Event} e - The event object
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -60,3 +69,4 @@ const DeployForm = () => {
 };
 
 export default DeployForm;
+

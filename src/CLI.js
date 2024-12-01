@@ -3,6 +3,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+/**
+ * CLI component renders a command line interface for a container on a specific VM.
+ *
+ * The component has a few key features:
+ * 1. **Command History**: The component stores the command history in the state and renders it below the input field.
+ * 2. **Command Input**: The component renders a text input field to enter a command. The input is debounced and when the user submits the form, the component makes a POST request to the server to execute the command.
+ * 3. **Navigation**: The component provides navigation using the up and down arrow keys. When the user presses the up arrow key, the component displays the previous command in the input field. When the user presses the down arrow key, the component displays the next command in the input field.
+ * 4. **Loading State**: The component shows a loading state when the command is being executed. The loading state is represented by a spinner.
+ * 5. **Error Handling**: The component handles errors that occur when executing the command. If an error occurs, the component displays an error message below the input field.
+ */
 const CLI = () => {
   const { vmName, containerName } = useParams();
   const [command, setCommand] = useState('');
@@ -129,7 +139,6 @@ const CLI = () => {
           </form>
         </div>
 
-        {/* Optional: Loading Indicator */}
         {isLoading && (
           <div className="flex items-center mt-2">
             <span className="text-green-500 mr-2">Processing...</span>
@@ -150,3 +159,4 @@ const CLI = () => {
 };
 
 export default CLI;
+

@@ -1,5 +1,10 @@
 import React from 'react';
 
+/**
+ * ContainerMetrics is a component that displays the metrics for a container
+ * @param {Object} container The container object containing the metrics
+ * @returns {JSX.Element} A JSX element containing the metrics
+ */
 const ContainerMetrics = ({ container }) => (
   <div className="mt-4">
     <p><strong>CPU Usage:</strong> {container.CPUPerc}</p>
@@ -11,3 +16,4 @@ const ContainerMetrics = ({ container }) => (
 );
 
 export default ContainerMetrics;
+

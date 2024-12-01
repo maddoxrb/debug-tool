@@ -1,3 +1,9 @@
+/**
+ * VMNetworkInfo fetches network data from the server and displays it in a
+ * readable format.
+ *
+ * @param {string} vmName - the name of the VM to fetch network data for
+ */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -24,6 +30,7 @@ const VMNetworkInfo = () => {
     fetchNetworkData();
   }, [vmName]);
 
+  // Render the network details for each network
   const renderNetworkDetails = (network) => (
     <div key={network.Id} className=" p-6 rounded-xl bg-card dark:bg-card rounded shadow-md">
         <h2 className="text-3xl font-bold mb-8">VM Networking Information - {vmName.toUpperCase()}</h2>
@@ -107,3 +114,4 @@ const VMNetworkInfo = () => {
 };
 
 export default VMNetworkInfo;
+

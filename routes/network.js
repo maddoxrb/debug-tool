@@ -2,6 +2,7 @@ const express = require('express');
 const { connectToVM } = require('../sshUtils');
 const router = express.Router();
 
+// Mapping of VM names to their IP addresses
 const vmHosts = {
   vm1: '192.168.5.50',
   vm2: '192.168.5.27',
@@ -24,16 +25,20 @@ router.get('/:vmName', async (req, res) => {
   const { vmName } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Validate VM name
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = 'docker network inspect bridge';
 
     let data = '';
+    // Execute command to get network details
     vmConn.exec(command, (err, stream) => {
       if (err) throw err;
 
+      // Collect command output
       stream.on('data', (chunk) => (data += chunk))
         .on('close', () => {
           const networkData = safeJSONParse(data);
@@ -56,17 +61,20 @@ router.get('/:vmName/container/:containerName', async (req, res) => {
   const { vmName, containerName } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Validate VM name
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = `docker inspect ${containerName}`;
-    console.log(command)
 
     let data = '';
+    // Execute command to inspect container
     vmConn.exec(command, (err, stream) => {
       if (err) throw err;
 
+      // Collect command output
       stream.on('data', (chunk) => (data += chunk))
         .on('close', () => {
           const containerData = safeJSONParse(data);
@@ -85,3 +93,4 @@ router.get('/:vmName/container/:containerName', async (req, res) => {
 });
 
 module.exports = router;
+

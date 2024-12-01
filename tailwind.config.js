@@ -3,7 +3,7 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}",
     "./public/index.html",
   ],
-  darkMode: 'class', // Enable dark mode with a specific class
+  darkMode: 'class', 
   theme: {
     extend: {
       keyframes: {
@@ -27,7 +27,7 @@ module.exports = {
         '2/3-screen': '66.6667vh',
       },
       minHeight: {
-        'cli': '66.6667vh', // Define min-h-cli
+        'cli': '66.6667vh',
       },
     },
   },

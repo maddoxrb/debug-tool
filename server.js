@@ -5,7 +5,6 @@ const networkRoutes = require('./routes/network');
 const app = express();
 app.use(express.json());
 
-// Register your routers
 app.use('/api/deploy', deployRouter);
 app.use('/api/metrics', metricsRouter);
 app.use('/api/network', networkRoutes);

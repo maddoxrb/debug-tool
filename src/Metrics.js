@@ -5,6 +5,10 @@ import ContainerCard from './ContainerCard';
 import { useNavigate } from 'react-router-dom';
 import { VMContext } from './VMContext'; // Import the context
 
+/**
+ * Metrics component displays a list of container metrics for the
+ * selected VM. It fetches metrics from the API every 10 seconds.
+ */
 const Metrics = () => {
   const { vmName, setVmName } = useContext(VMContext); // Consume the context
   const [metrics, setMetrics] = useState([]);
@@ -12,6 +16,10 @@ const Metrics = () => {
   const navigate = useNavigate();
   const fetchInProgress = useRef(false);
 
+  /**
+   * Fetch container metrics for the current VM.
+   * It sets a flag to prevent concurrent fetches.
+   */
   const fetchMetrics = async () => {
     if (fetchInProgress.current) return;
     setIsLoading(true);
@@ -28,6 +36,10 @@ const Metrics = () => {
     }
   };
 
+  /**
+   * When the component mounts, fetch metrics for the current VM.
+   * It also sets an interval to fetch metrics every 10 seconds.
+   */
   useEffect(() => {
     setMetrics([]);
     fetchMetrics();
@@ -35,6 +47,9 @@ const Metrics = () => {
     return () => clearInterval(interval);
   }, [vmName]);
 
+  /**
+   * Handle VM selection change. It updates the context state.
+   */
   const handleVmChange = (e) => {
     if (!fetchInProgress.current) {
       setVmName(e.target.value); // Update the context state
@@ -78,3 +93,4 @@ const Metrics = () => {
 };
 
 export default Metrics;
+

@@ -70,11 +70,11 @@ const ImageVolumeManagement = () => {
       {/* Images Section */}
       <h3 className="text-xl font-semibold mb-4">Images</h3>
       {isLoadingImages ? (
-        <p>Loading images...</p> // You can replace this with a spinner component if you have one
+        <p>Loading images...</p>
       ) : images.length > 0 ? (
         images.map((image, index) => (
           <div
-            key={`${image.ID}-${index}`} // Use combined key with index fallback
+            key={`${image.ID}-${index}`} 
             className="flex items-center justify-between mb-3 bg-lightBg px-4 py-2 rounded-xl"
           >
             <span>
@@ -119,3 +119,4 @@ const ImageVolumeManagement = () => {
 };
 
 export default ImageVolumeManagement;
+

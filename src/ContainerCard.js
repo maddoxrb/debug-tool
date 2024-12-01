@@ -8,6 +8,15 @@ import LogsViewer from './components/LogsViewer';
 import EnvVariables from './components/EnvVariables';
 import { Tooltip } from 'react-tooltip';
 
+/**
+ * ContainerCard is a component that displays a single container's
+ * metrics, logs and environment variables. It also provides buttons
+ * to stop and restart the container.
+ *
+ * @param {object} container - The container object
+ * @param {string} vmName - The name of the VM the container belongs to
+ * @param {function} fetchMetrics - The function to fetch the metrics for the container
+ */
 const ContainerCard = ({ container, vmName, fetchMetrics }) => {
   const [logs, setLogs] = useState('');
   const [showLogs, setShowLogs] = useState(false);
@@ -15,7 +24,7 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [envVars, setEnvVars] = useState([]);
   const [showEnvVars, setShowEnvVars] = useState(false);
-  const [isStopping, setIsStopping] = useState(false); // New state variable
+  const [isStopping, setIsStopping] = useState(false); 
 
   const navigate = useNavigate();
 
@@ -82,8 +91,6 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
         </div>
       )}
 
-      
-
       <ContainerHeader
         container={container}
         vmName={vmName}
@@ -138,3 +145,5 @@ const ContainerCard = ({ container, vmName, fetchMetrics }) => {
 };
 
 export default ContainerCard;
+
+

@@ -1,3 +1,12 @@
+/**
+ * A component to display a list of environment variables for a given container.
+ *
+ * @param {string} containerName - The name of the container.
+ * @param {string} vmName - The name of the VM that the container is running on.
+ * @param {Object[]} envVars - An array of environment variables, where each
+ *     element is a string representing the name and value of the environment
+ *     variable, e.g. "FOO=bar".
+ */
 import React from 'react';
 
 const EnvVariables = ({ containerName, vmName, envVars }) => {
@@ -18,3 +27,4 @@ const EnvVariables = ({ containerName, vmName, envVars }) => {
 };
 
 export default EnvVariables;
+

@@ -3,6 +3,7 @@ const { connectToVM } = require('../sshUtils');
 const router = express.Router();
 const { spawn } = require('child_process');
 
+// Define the list of VMs and their IP addresses
 const vmHosts = {
   vm1: '192.168.5.50',
   vm2: '192.168.5.27',
@@ -10,7 +11,11 @@ const vmHosts = {
   vm4: '192.168.5.111',
 };
 
-// Helper function to safely parse JSON
+/**
+ * Helper function to safely parse JSON strings
+ * @param {String} line The JSON string to parse
+ * @returns {Object} The parsed JSON object, or null if parsing fails
+ */
 function safeJSONParse(line) {
   try {
     return JSON.parse(line);
@@ -20,7 +25,11 @@ function safeJSONParse(line) {
   }
 }
 
-// Function to convert memory sizes to MiB
+/**
+ * Function to convert memory sizes from various units to MiB
+ * @param {String} sizeStr The memory size with optional unit (e.g. '100 MiB', '1 GB', '500 KB')
+ * @returns {Number} The memory size in MiB
+ */
 function convertToMiB(sizeStr) {
   let size = parseFloat(sizeStr);
   if (sizeStr.toUpperCase().includes('GIB') || sizeStr.toUpperCase().includes('GB')) {
@@ -34,15 +43,20 @@ function convertToMiB(sizeStr) {
   }
 }
 
-// Function to get prediction from Python script
+/**
+ * Function to get prediction from Python script
+ * @param {Object} containerStats The container statistics as returned by the docker container inspect command
+ * @returns {Promise<String>} The prediction from the Python script, or an error message if the Python script fails
+ */
 const getPrediction = (containerStats) => {
   return new Promise((resolve, reject) => {
-    // Preprocess the input data
     try {
+      // Extract the memory usage and limit from the container stats
       const memUsageParts = containerStats.MemUsage.split(' / ');
       const memUsageStr = memUsageParts[0].trim();
       const memLimitStr = memUsageParts[1].trim();
 
+      // Create the input data for the Python script
       const inputData = {
         cpu_perc: parseFloat(containerStats.CPUPerc.replace('%', '').trim()),
         mem_usage: convertToMiB(memUsageStr),
@@ -51,13 +65,13 @@ const getPrediction = (containerStats) => {
         pids: parseInt(containerStats.PIDs),
       };
 
+      // Spawn the Python script and pass the input data to its stdin
       const pyProcess = spawn('python3', ['predict.py']);
+      pyProcess.stdin.write(JSON.stringify(inputData));
+      pyProcess.stdin.end();
 
       let prediction = '';
       let errorData = '';
-
-      pyProcess.stdin.write(JSON.stringify(inputData));
-      pyProcess.stdin.end();
 
       pyProcess.stdout.on('data', (data) => {
         prediction += data.toString();
@@ -69,35 +83,42 @@ const getPrediction = (containerStats) => {
 
       pyProcess.on('close', (code) => {
         if (code !== 0) {
+          // If the Python script failed, log the error and reject the promise
           console.error(`Python script exited with code ${code}: ${errorData}`);
           reject(new Error(`Python script error: ${errorData}`));
         } else {
+          // If the Python script succeeded, resolve the promise with the prediction
           resolve(prediction.trim());
         }
       });
     } catch (err) {
+      // If there was an error preprocessing the container stats, log the error and reject the promise
       console.error('Error preprocessing container stats:', err);
       reject(err);
     }
   });
+
 };
 
 // --------------------
 // Images Routes
-// --------------------
+// -------------------
 
-// Fetch Docker images for a VM
+// Route to get Docker images for a VM
 router.get('/images/:vmName', async (req, res) => {
   const { vmName } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Validate the VM name
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = 'docker images --format "{{json .}}"';
 
     let data = '';
+    // Execute the command to fetch images
     vmConn.exec(command, (err, stream) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -106,6 +127,7 @@ router.get('/images/:vmName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Collect command output and parse it
       stream.on('data', (chunk) => (data += chunk))
         .on('close', () => {
           const images = data.trim().split('\n').map(safeJSONParse).filter(Boolean);
@@ -123,17 +145,20 @@ router.get('/images/:vmName', async (req, res) => {
   }
 });
 
-// Delete a Docker image
+// Route to delete a Docker image
 router.delete('/images/:vmName/:imageId', async (req, res) => {
   const { vmName, imageId } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Validate the VM name
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = `docker rmi ${imageId}`;
 
+    // Execute the command to remove the image
     vmConn.exec(command, (err) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -156,18 +181,21 @@ router.delete('/images/:vmName/:imageId', async (req, res) => {
 // Volumes Routes
 // --------------------
 
-// Fetch Docker volumes for a VM
+// Route to list Docker volumes for a VM
 router.get('/volumes/:vmName', async (req, res) => {
   const { vmName } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Validate the VM name
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = 'docker volume ls --format "{{json .}}"';
 
     let data = '';
+    // Execute the command to list volumes
     vmConn.exec(command, (err, stream) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -176,6 +204,7 @@ router.get('/volumes/:vmName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Collect command output and parse it
       stream.on('data', (chunk) => (data += chunk))
         .on('close', () => {
           const volumes = data.trim().split('\n').map(safeJSONParse).filter(Boolean);
@@ -193,17 +222,20 @@ router.get('/volumes/:vmName', async (req, res) => {
   }
 });
 
-// Delete a Docker volume
+// Route to delete a Docker volume
 router.delete('/volumes/:vmName/:volumeName', async (req, res) => {
   const { vmName, volumeName } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Validate the VM name
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = `docker volume rm ${volumeName}`;
 
+    // Execute the command to delete the volume
     vmConn.exec(command, (err) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -212,6 +244,7 @@ router.delete('/volumes/:vmName/:volumeName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Return a success message
       res.json({ message: 'Volume deleted successfully' });
       vmConn.end();
       bastionConn.end();
@@ -231,9 +264,11 @@ router.get('/:vmName/env/:containerName', async (req, res) => {
   const { vmName, containerName } = req.params;
   const vmHost = vmHosts[vmName];
 
+  // Check if the VM host is valid
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const command = `docker inspect --format '{{json .Config.Env}}' ${containerName}`;
 
@@ -245,10 +280,12 @@ router.get('/:vmName/env/:containerName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Collect the command output
       let data = '';
       stream.on('data', (chunk) => (data += chunk))
         .on('close', () => {
           try {
+            // Parse and return the environment variables
             const envVars = JSON.parse(data);
             res.json({ envVars });
           } catch (parseError) {
@@ -274,14 +311,15 @@ router.post('/:vmName/env/:containerName', async (req, res) => {
   const { key, value } = req.body;
   const vmHost = vmHosts[vmName];
 
+  // Check if the VM host is valid
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
+  // Validate that both key and value are provided
   if (!key || !value) return res.status(400).json({ error: 'Environment variable key and value are required' });
 
   try {
+    // Connect to the VM
     const { vmConn, bastionConn } = await connectToVM(vmHost);
-    // Updating env vars in a running container is not straightforward. It usually requires recreating the container.
-    // For demonstration, we'll export the variable in the current shell.
     const command = `docker exec ${containerName} bash -c "export ${key}='${value}'"`;
 
     vmConn.exec(command, (err, stream) => {
@@ -292,6 +330,7 @@ router.post('/:vmName/env/:containerName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Confirm the environment variable update
       stream.on('close', () => {
         res.json({ message: 'Environment variable updated (temporary for current shell)' });
         vmConn.end();
@@ -321,9 +360,12 @@ router.get('/:vmName', async (req, res) => {
   }
 
   try {
+    // Connect to the VM using SSH
     const { vmConn, bastionConn } = await connectToVM(vmHost);
+    // Get the container metrics using Docker stats
     const metricsCommand = 'sudo docker stats --no-stream --format "{{json .}}"';
 
+    // Execute the command and stream the output
     vmConn.exec(metricsCommand, async (err, stream) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -332,6 +374,7 @@ router.get('/:vmName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Accumulate the output of the command
       let data = '';
       stream
         .on('data', (chunk) => (data += chunk))
@@ -340,31 +383,36 @@ router.get('/:vmName', async (req, res) => {
             console.error('No data received from Docker stats');
             res.status(500).json({ error: 'No data received from Docker stats' });
           } else {
+            // Parse the output into an array of JSON objects
             const lines = data.trim().split('\n');
             const metrics = lines.map(safeJSONParse).filter((item) => item !== null);
 
-            // If metrics array is empty after filtering
+            // If no valid data was received, return an error
             if (metrics.length === 0) {
               console.error('No valid JSON data received');
               res.status(500).json({ error: 'No valid metrics data' });
             } else {
-              // Now we will process the metrics to include predictions
+              // For each container, get the prediction and add it to the metrics
               try {
                 const predictions = await Promise.all(
                   metrics.map(async (container) => {
                     try {
+                      // Get the prediction for the container
                       const prediction = await getPrediction(container);
-                      container.warning = prediction === '1'; // Assuming '1' indicates error
+                      // If the prediction is 1, set the warning flag
+                      container.warning = prediction === '1';
                     } catch (err) {
                       console.error(
                         `Error getting prediction for container ${container.Name}:`,
                         err
                       );
-                      container.warning = false; // Default to no warning on error
+                      // If there's an error, set the warning flag to false
+                      container.warning = false;
                     }
                     return container;
                   })
                 );
+                // Return the array of metrics with the predictions
                 res.json(predictions);
               } catch (err) {
                 console.error('Error processing metrics:', err);
@@ -373,7 +421,6 @@ router.get('/:vmName', async (req, res) => {
             }
           }
 
-          // Close the connections
           vmConn.end();
           bastionConn.end();
         })
@@ -399,7 +446,9 @@ router.get('/:vmName/logs/:containerName', async (req, res) => {
     }
   
     try {
+      // Connect to the VM using SSH
       const { vmConn, bastionConn } = await connectToVM(vmHost);
+      // Get the logs of the specified container using Docker logs
       const logsCommand = `sudo docker logs --tail 200 ${containerName}`;
       console.log(`Executing command: ${logsCommand}`);
   
@@ -407,6 +456,7 @@ router.get('/:vmName/logs/:containerName', async (req, res) => {
       let data = '';
       let errorData = '';
   
+      // Execute the command and stream the output
       vmConn.exec(logsCommand, (err, stream) => {
         if (err) {
           console.error('Command execution error:', err);
@@ -415,20 +465,23 @@ router.get('/:vmName/logs/:containerName', async (req, res) => {
           return res.status(500).json({ error: err.message });
         }
   
+        // Accumulate the output of the command
         stream
           .on('data', (chunk) => {
             data += chunk;
           })
           .on('close', () => {
+            // Return the logs if they haven't been sent yet
             if (!responseSent) {
               responseSent = true;
               res.json({ logs: data + errorData });
             }
+            // Close the SSH connections
             vmConn.end();
             bastionConn.end();
           })
           .stderr.on('data', (chunk) => {
-            errorData += chunk; // Append STDERR to a separate variable
+            errorData += chunk; 
           });
       });
     } catch (err) {
@@ -436,6 +489,7 @@ router.get('/:vmName/logs/:containerName', async (req, res) => {
       res.status(500).json({ error: 'Failed to connect to VM or retrieve logs' });
     }
   });
+
   
   
 
@@ -450,6 +504,7 @@ router.post('/:vmName/stop/:containerName', async (req, res) => {
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const stopCommand = `sudo docker stop ${containerName}`;
 
+    // Execute the command to stop the container
     vmConn.exec(stopCommand, (err) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -458,7 +513,9 @@ router.post('/:vmName/stop/:containerName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
+      // Return a success message
       res.json({ message: 'Container stopped successfully' });
+      // Close the SSH connections
       vmConn.end();
       bastionConn.end();
     });
@@ -482,6 +539,7 @@ router.post('/:vmName/exec/:containerName', async (req, res) => {
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const execCommand = `sudo docker exec ${containerName} ${command}`;
 
+    // Execute the command and stream the output
     vmConn.exec(execCommand, (err, stream) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -491,9 +549,12 @@ router.post('/:vmName/exec/:containerName', async (req, res) => {
       }
 
       let data = '';
+      // Accumulate the output of the command
       stream.on('data', (chunk) => (data += chunk))
         .on('close', () => {
+          // Return the output of the command
           res.json({ output: data });
+          // Close the SSH connections
           vmConn.end();
           bastionConn.end();
         })
@@ -511,15 +572,14 @@ router.post('/:vmName/exec/:containerName', async (req, res) => {
 router.post('/:vmName/restart/:containerName', async (req, res) => {
   const { vmName, containerName } = req.params;
   const vmHost = vmHosts[vmName];
-  console.log('--------- PINGED -------------')
 
   if (!vmHost) return res.status(400).json({ error: 'Invalid VM name' });
 
   try {
     const { vmConn, bastionConn } = await connectToVM(vmHost);
     const restartCommand = `docker restart ${containerName}`;
-    console.log(restartCommand)
 
+    // Execute the command to restart the container
     vmConn.exec(restartCommand, (err) => {
       if (err) {
         console.error('Command execution error:', err);
@@ -528,8 +588,8 @@ router.post('/:vmName/restart/:containerName', async (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
-      console.log('Success')
       res.json({ message: 'Container restarted successfully' });
+      // Close the SSH connections
       vmConn.end();
       bastionConn.end();
     });
@@ -540,3 +600,4 @@ router.post('/:vmName/restart/:containerName', async (req, res) => {
 });
 
 module.exports = router;
+

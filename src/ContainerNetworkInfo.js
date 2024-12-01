@@ -1,3 +1,7 @@
+/**
+ * This component fetches container data from the API and renders a table
+ * showing the container's details.
+ */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -8,7 +12,9 @@ const ContainerNetworkDetails = () => {
   const [isLoading, setIsLoading] = useState(true); // Track loading state
   const navigate = useNavigate();
 
-  // Fetch container network data
+  /**
+   * Fetch container network data from the API
+   */
   const fetchContainerData = async () => {
     setIsLoading(true); // Start loading
     try {
@@ -25,7 +31,11 @@ const ContainerNetworkDetails = () => {
     fetchContainerData();
   }, [vmName, containerName]);
 
-  // Render table rows
+  /**
+   * Render a table row
+   * @param {string} label - The label for the row
+   * @param {string} value - The value for the row
+   */
   const renderTableRow = (label, value) => (
     <tr key={label}>
       <td className="py-2 px-4 border-b font-semibold">{label}</td>
@@ -67,8 +77,6 @@ const ContainerNetworkDetails = () => {
     RestartCount,
   } = containerData;
 
-
-
   const { Status, Running, Pid, StartedAt, FinishedAt } = State || {};
   const { Gateway, IPAddress, MacAddress, Ports, Networks } = NetworkSettings || {};
   const exposedPorts = Ports ? Object.keys(Ports).join(', ') : 'None';
@@ -90,15 +98,12 @@ const ContainerNetworkDetails = () => {
   return (
     <div className="p-6 bg-card pb-10 mt-10 rounded-lg">
       <h2 className="text-2xl font-bold mb-6">Container Details - {containerName}</h2>
-
-
-      {/* Container Details Table */}
       <div className="overflow-x-auto rounded-lg">
-      <div className=" bg-lightBg rounded-lg mb-8 p-6 bg-lightBg rounded shadow-md">
-        <h3 className="text-xl font-bold mb-4">Network Details</h3>
-        {networkDetails}
-      </div>
-      <table className="min-w-full bg-lightBg shadow-md rounded-xl overflow-hidden border border-gray-300">
+        <div className=" bg-lightBg rounded-lg mb-8 p-6 bg-lightBg rounded shadow-md">
+          <h3 className="text-xl font-bold mb-4">Network Details</h3>
+          {networkDetails}
+        </div>
+        <table className="min-w-full bg-lightBg shadow-md rounded-xl overflow-hidden border border-gray-300">
           <tbody>
             {renderTableRow('Container ID', Id)}
             {renderTableRow('Name', Name)}
@@ -116,11 +121,9 @@ const ContainerNetworkDetails = () => {
           </tbody>
         </table>
       </div>
-
-      {/* Network Details Section */}
-      
     </div>
   );
 };
 
 export default ContainerNetworkDetails;
+

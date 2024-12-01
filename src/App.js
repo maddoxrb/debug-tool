@@ -7,7 +7,7 @@ import CLI from './CLI';
 import ImageVolumeManagement from './ImageVolumeManagement';
 import NetworkVisualization from './NetworkVisualization';
 import ContainerNetworkInfo from './ContainerNetworkInfo';
-import { VMProvider, VMContext } from './VMContext'; // Import the context
+import { VMProvider, VMContext } from './VMContext'; 
 
 const App = () => {
   return (
@@ -34,7 +34,7 @@ const App = () => {
   );
 };
 
-// Create a separate Header component to consume the context
+
 const Header = () => {
   const { vmName } = React.useContext(VMContext);
 

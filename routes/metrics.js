@@ -17,13 +17,18 @@ const vmHosts = {
  * @returns {Object} The parsed JSON object, or null if parsing fails
  */
 function safeJSONParse(line) {
+  if (!line || line.trim() === '') {
+    console.error('Empty JSON string received');
+    return null;
+  }
   try {
     return JSON.parse(line);
   } catch (error) {
-    console.error('JSON parsing error:', error);
+    console.error('JSON parsing error:', error.message, 'Input:', line);
     return null;
   }
 }
+
 
 /**
  * Function to convert memory sizes from various units to MiB
